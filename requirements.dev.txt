@@ -1,0 +1,7 @@
+argh
+black
+build
+deepmerge
+gql[requests]>=3.4.0
+pycognito
+simplejson
