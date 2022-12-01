@@ -12,7 +12,7 @@ from gql import gql
 from gql.transport.requests import RequestsHTTPTransport
 from pycognito.utils import RequestsSrpAuth
 
-from .data_sources import factory as data_source_factory, DataSource
+from .data_sources import factory as data_source_factory
 from .objects import (
     APPS,
     KMS_KEYS,
@@ -22,7 +22,7 @@ from .objects import (
     TerraformObject,
     encode_terraform,
 )
-from .resources import factory as resource_factory
+from .resources import factory as resource_factory, Resource
 
 DEFAULT_APPSYNC_ENDPOINT = "https://api-prod.us-east-1.echo.stream/graphql"
 
@@ -119,7 +119,6 @@ def terrafy(
         )
 
     __print_cyan(f"Logging user {username} in to Tenant {tenant}")
-    print(appsync_endpoint)
     gql_client = GqlClient(
         fetch_schema_from_transport=True,
         transport=RequestsHTTPTransport(
@@ -139,14 +138,15 @@ def terrafy(
 
     terraform_objects: list[TerraformObject] = list()
     for getter in (
+        __process_main,
+        __process_tenant_and_tenant_users,
+        __process_api_users,
         __process_message_types,
         __process_functions,
         __process_managed_node_types,
         __process_kms_keys,
-        __process_users,
         __process_apps,
         __process_nodes_and_edges,
-        __process_main,
     ):
         stdout.write("\033[93m.\033[00m")
         stdout.flush()
@@ -176,21 +176,20 @@ def terrafy(
         ECHOSTREAM_USER_POOL_ID=user_pool_id,
     )
     for obj in terraform_objects:
-        if isinstance(obj, DataSource):
-            continue
-        try:
-            subprocess.run(
-                [terraform, "import", obj.address, obj.identity],
-                capture_output=True,
-                check=True,
-                env=env,
-            )
-        except subprocess.CalledProcessError as cpe:
-            raise Exception(
-                f"Error importing {obj.address}\n{cpe.stdout}\n{cpe.stderr}"
-            )
-        stdout.write("\033[93m.\033[00m")
-        stdout.flush()
+        if isinstance(obj, Resource):
+            try:
+                subprocess.run(
+                    [terraform, "import", obj.address, obj.identity],
+                    capture_output=True,
+                    check=True,
+                    env=env,
+                )
+            except subprocess.CalledProcessError as cpe:
+                raise Exception(
+                    f"Error importing {obj.address}\n{cpe.stdout}\n{cpe.stderr}"
+                )
+            stdout.write("\033[93m.\033[00m")
+            stdout.flush()
     stdout.write("\n")
     __print_green("EchoStream resources imported!")
     __print_cyan("Confirming that infrastructure matches configuration")
@@ -202,7 +201,7 @@ def terrafy(
         stdout.write("\n")
         print(plan_check.stdout.decode())
 
-    __print_green(f"EchoStream Tenant {tenant} Terrafyed!!!")
+    __print_green(f"EchoStream Tenant {tenant} Terrafy'd!!!")
 
 
 def __print_cyan(value: str) -> None:
@@ -221,8 +220,105 @@ def __print_yellow(value: str) -> None:
     print(f"\033[93m{value}\033[00m")
 
 
+def __process_api_users(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
+    query = gql(
+        """
+        query listApiUsers($tenant: String!, $exclusiveStartKey: AWSJSON) {
+            ListApiUsers(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey) {
+                echos {
+                    __typename
+                    description
+                    role
+                    username
+                }
+                lastEvaluatedKey
+            }
+        }
+        """
+    )
+
+    def list_api_users(exclusive_start_key: Any = None) -> list[TerraformObject]:
+        with gql_client as session:
+            result = session.execute(
+                query,
+                variable_values=dict(
+                    tenant=tenant, exclusiveStartKey=exclusive_start_key
+                ),
+            )["ListApiUsers"]
+        objs = [resource_factory(data) for data in result["echos"]]
+        return (
+            objs + list_api_users(exclusive_start_key)
+            if (exclusive_start_key := result.get("lastEvaluatedKey"))
+            else objs
+        )
+
+    api_users = list_api_users()
+    api_users_json = dict()
+    for api_user in api_users:
+        api_users_json = always_merger.merge(api_users_json, api_user.encode())
+    with open("api_users.tf.json", "wt") as tf_json:
+        json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=api_users_json)
+    return api_users
+
+
 def __process_apps(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
-    return []
+    query = gql(
+        """
+        query listApps($tenant: String!, $exclusiveStartKey: AWSJSON) {
+            ListApps(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey) {
+                echos {
+                    __typename
+                    description
+                    name
+                    ... on CrossAccountApp {
+                        account
+                        config
+                        tableAccess
+                    }
+                    ... on CrossTenantReceivingApp {
+                        sendingTenant
+                    }
+                    ... on CrossTenantSendingApp {
+                        receivingApp
+                        receivingTenant
+                    }
+                    ... on ExternalApp {
+                        config
+                        tableAccess
+                    }
+                    ... on ManagedApp {
+                        config
+                        tableAccess
+                    }
+                }
+                lastEvaluatedKey
+            }
+        }
+        """
+    )
+
+    def list_apps(exclusive_start_key: Any = None) -> list[TerraformObject]:
+        with gql_client as session:
+            result = session.execute(
+                query,
+                variable_values=dict(
+                    tenant=tenant, exclusiveStartKey=exclusive_start_key
+                ),
+            )["ListApps"]
+        objs = [resource_factory(data) for data in result["echos"]]
+        return (
+            objs + list_apps(exclusive_start_key)
+            if (exclusive_start_key := result.get("lastEvaluatedKey"))
+            else objs
+        )
+
+    apps = list_apps()
+    apps_json = dict()
+    for app in apps:
+        apps_json = always_merger.merge(apps_json, app.encode())
+    with open("apps.tf.json", "wt") as tf_json:
+        json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=apps_json)
+    return apps
 
 
 def __process_functions(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
@@ -271,58 +367,144 @@ def __process_functions(gql_client: GqlClient, tenant: str) -> list[TerraformObj
             for data in result["echos"]
         ]
         return (
-            objs
+            objs + list_functions(exclusive_start_key)
             if (exclusive_start_key := result.get("lastEvaluatedKey"))
-            else objs.extend(list_functions(exclusive_start_key))
+            else objs
         )
 
     functions = list_functions()
     functions_json = dict()
-    for function in functions:
-        functions_json = always_merger.merge(functions_json, function.encode())
+    for func in functions:
+        functions_json = always_merger.merge(functions_json, func.encode())
     with open("functions.tf.json", "wt") as tf_json:
         json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=functions_json)
     return functions
 
 
 def __process_kms_keys(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
-    return []
+    query = gql(
+        """
+        query listKmsKeys($tenant: String!, $exclusiveStartKey: AWSJSON) {
+            ListKmsKeys(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey) {
+                echos {
+                    __typename
+                    description
+                    name
+                }
+                lastEvaluatedKey
+            }
+        }
+        """
+    )
+
+    def list_kms_keys(exclusive_start_key: Any = None) -> list[TerraformObject]:
+        with gql_client as session:
+            result = session.execute(
+                query,
+                variable_values=dict(
+                    tenant=tenant, exclusiveStartKey=exclusive_start_key
+                ),
+            )["ListKmsKeys"]
+        objs = [resource_factory(data) for data in result["echos"]]
+        return (
+            objs + list_kms_keys(exclusive_start_key)
+            if (exclusive_start_key := result.get("lastEvaluatedKey"))
+            else objs
+        )
+
+    kms_keys = list_kms_keys()
+    kms_keys_json = dict()
+    for kms_key in kms_keys:
+        kms_keys_json = always_merger.merge(kms_keys_json, kms_key.encode())
+    with open("kms_keys.tf.json", "wt") as tf_json:
+        json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=kms_keys_json)
+    return kms_keys
 
 
 def __process_main(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
     main_json = dict(
         terraform=dict(
             required_providers=dict(
-                echostream=dict(source="Echo-Stream/echostream", version=">=0.0.5")
+                echostream=dict(source="Echo-Stream/echostream", version=">=0.0.6")
             ),
             required_version=">=1.3.5",
         ),
         provider=dict(echostream=dict()),
     )
-    query = gql(
-        """
-        query getTenant($tenant: String!) {
-            GetTenant(tenant: $tenant) {
-                __typename
-                config
-                description
-            }
-        }
-        """
-    )
-    with gql_client as session:
-        data = session.execute(query, variable_values=dict(tenant=tenant))["GetTenant"]
-    tenant_resource = resource_factory(data)
-    main_json = always_merger.merge(main_json, tenant_resource.encode())
     with open("main.tf.json", "wt") as tf_json:
         json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=main_json)
-    return [tenant_resource]
+    return list()
 
 
 def __process_managed_node_types(
     gql_client: GqlClient, tenant: str
 ) -> list[TerraformObject]:
-    return []
+    query = gql(
+        """
+        query listManagedNodeTypes($tenant: String!, $exclusiveStartKey: AWSJSON) {
+            ListManagedNodeTypes(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey) {
+                echos {
+                    __typename
+                    configTemplate
+                    description
+                    imageUri
+                    mountRequirements {
+                        description
+                        source
+                        target
+                    }
+                    name
+                    portRequirements {
+                        containerPort
+                        description
+                        protocol
+                    }
+                    readme
+                    receiveMessageType {
+                        name
+                    }
+                    sendMessageType {
+                        name
+                    }
+                    system
+                }
+                lastEvaluatedKey
+            }
+        }
+        """
+    )
+
+    def list_managed_node_types(
+        exclusive_start_key: Any = None,
+    ) -> list[TerraformObject]:
+        with gql_client as session:
+            result = session.execute(
+                query,
+                variable_values=dict(
+                    tenant=tenant, exclusiveStartKey=exclusive_start_key
+                ),
+            )["ListManagedNodeTypes"]
+        objs = [
+            data_source_factory(data) if data.get("system") else resource_factory(data)
+            for data in result["echos"]
+        ]
+        return (
+            objs + list_managed_node_types(exclusive_start_key)
+            if (exclusive_start_key := result.get("lastEvaluatedKey"))
+            else objs
+        )
+
+    managed_node_types = list_managed_node_types()
+    managed_node_types_json = dict()
+    for managed_node_type in managed_node_types:
+        managed_node_types_json = always_merger.merge(
+            managed_node_types_json, managed_node_type.encode()
+        )
+    with open("managed_node_types.tf.json", "wt") as tf_json:
+        json.dump(
+            default=encode_terraform, fp=tf_json, indent=2, obj=managed_node_types_json
+        )
+    return managed_node_types
 
 
 def __process_message_types(
@@ -362,9 +544,9 @@ def __process_message_types(
             for data in result["echos"]
         ]
         return (
-            objs
+            objs + list_message_types(exclusive_start_key)
             if (exclusive_start_key := result.get("lastEvaluatedKey"))
-            else objs.extend(list_message_types(exclusive_start_key))
+            else objs
         )
 
     message_types = list_message_types()
@@ -383,8 +565,433 @@ def __process_message_types(
 def __process_nodes_and_edges(
     gql_client: GqlClient, tenant: str
 ) -> list[TerraformObject]:
-    return []
+    query = gql(
+        """
+        query listNodes($tenant: String!, $exclusiveStartKey: AWSJSON) {
+            ListNodes(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey) {
+                echos {
+                    __typename
+                    description
+                    name
+                    ... on AlertEmitterNode {
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on AppChangeReceiverNode {
+                        app {
+                            name
+                        }
+                    }
+                    ... on AppChangeRouterNode {
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on AuditEmitterNode {
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on BitmapRouterNode {
+                        config
+                        inlineBitmapper
+                        loggingLevel
+                        managedBitmapper {
+                            name
+                        }
+                        receiveMessageType {
+                            name
+                        }
+                        requirements
+                        routeTable
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on ChangeEmitterNode {
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on CrossTenantReceivingNode {
+                        app {
+                            name
+                        }
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                        sendMessageType {
+                            name
+                        }
+                    }
+                    ... on CrossTenantSendingNode {
+                        app {
+                            name
+                        }
+                        config
+                        inlineProcessor
+                        loggingLevel
+                        managedProcessor {
+                            name
+                        }
+                        receiveMessageType {
+                            name
+                        }
+                        requirements
+                        sendMessageType {
+                            name
+                        }
+                        sequentialProcessing
+                    }
+                    ... on DeadLetterEmitterNode {
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on ExternalNode {
+                        app {
+                            __typename
+                            ... on CrossAccountApp {
+                                name
+                            }
+                            ... on ExternalApp {
+                                name
+                            }
+                        }
+                        config
+                        receiveMessageType {
+                            name
+                        }
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                        sendMessageType {
+                            name
+                        }
+                    }
+                    ... on FilesDotComWebhookNode {
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on LoadBalancerNode {
+                        receiveMessageType {
+                            name
+                        }
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on LogEmitterNode {
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on ManagedNode {
+                        app {
+                            name
+                        }
+                        config
+                        loggingLevel
+                        managedNodeType {
+                            name
+                        }
+                        mounts {
+                            description
+                            source
+                            target
+                        }
+                        ports {
+                            containerPort
+                            hostAddress
+                            hostPort
+                            protocol
+                        }
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on ProcessorNode {
+                        config
+                        inlineProcessor
+                        loggingLevel
+                        managedProcessor {
+                            name
+                        }
+                        receiveMessageType {
+                            name
+                        }
+                        requirements
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                        sendMessageType {
+                            name
+                        }
+                        sequentialProcessing
+                    }
+                    ... on TimerNode {
+                        scheduleExpression
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                    }
+                    ... on WebhookNode {
+                        config
+                        inlineApiAuthenticator
+                        loggingLevel
+                        managedApiAuthenticator {
+                            name
+                        }
+                        requirements
+                        sendEdges {
+                            __typename
+                            description
+                            kmsKey {
+                                name
+                            }
+                            maxReceiveCount
+                            source {
+                                name
+                            }
+                            target {
+                                name
+                            }
+                        }
+                        sendMessageType {
+                            name
+                        }
+                    }
+                }
+                lastEvaluatedKey
+            }
+        }
+        """
+    )
+
+    def list_nodes(exclusive_start_key: Any = None) -> list[TerraformObject]:
+        with gql_client as session:
+            result = session.execute(
+                query,
+                variable_values=dict(
+                    tenant=tenant, exclusiveStartKey=exclusive_start_key
+                ),
+            )["ListNodes"]
+        objs = [
+            data_source_factory(data) or resource_factory(data)
+            for data in result["echos"]
+        ]
+        return (
+            objs + list_nodes(exclusive_start_key)
+            if (exclusive_start_key := result.get("lastEvaluatedKey"))
+            else objs
+        )
+
+    nodes = list_nodes()
+    nodes_json = dict()
+    edges: list[TerraformObject] = list()
+    edges_json = dict()
+    for node in nodes:
+        nodes_json = always_merger.merge(nodes_json, node.encode())
+        for data in node.get("sendEdges", []):
+            edge = resource_factory(data)
+            edges.append(edge)
+            edges_json = always_merger.merge(edges_json, edge.encode())
+    with open("nodes.tf.json", "wt") as tf_json:
+        json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=nodes_json)
+    with open("edges.tf.json", "wt") as tf_json:
+        json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=edges_json)
+    return nodes + edges
 
 
-def __process_users(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
-    return []
+def __process_tenant_and_tenant_users(
+    gql_client: GqlClient, tenant: str
+) -> list[TerraformObject]:
+    query = gql(
+        """
+        query getTenant($tenant: String!) {
+            GetTenant(tenant: $tenant) {
+                __typename
+                config
+                description
+                users {
+                    __typename
+                    email
+                    role
+                    status
+                }
+            }
+        }
+        """
+    )
+    with gql_client as session:
+        data = session.execute(query, variable_values=dict(tenant=tenant))["GetTenant"]
+    tenant_resource = resource_factory(data)
+    with open("tenant.tf.json", "wt") as tf_json:
+        json.dump(
+            default=encode_terraform, fp=tf_json, indent=2, obj=tenant_resource.encode()
+        )
+    tenant_users: list[TerraformObject] = list()
+    for data in list(data.get("users", [])):
+        tenant_users.append(resource_factory(data))
+    tenant_users_json = dict()
+    for tenant_user in tenant_users:
+        tenant_users_json = always_merger.merge(tenant_users_json, tenant_user.encode())
+    with open("tenant_users.tf.json", "wt") as tf_json:
+        json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=tenant_users_json)
+    return [tenant_resource] + tenant_users

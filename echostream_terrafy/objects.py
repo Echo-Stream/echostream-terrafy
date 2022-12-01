@@ -50,9 +50,14 @@ class TerraformObject(ABC, UserDict):
                 attributes[convert_key(key)] = convert_value(value)
         return attributes
 
+    @classmethod
+    def _convert_to_local_name(cls, value: str) -> str:
+        return cls.__LOCAL_NAME_PATTERN.sub("_", value).lower()
+
     @property
+    @abstractmethod
     def _local_name(self) -> str:
-        return self.__LOCAL_NAME_PATTERN.sub("_", self.identity)
+        pass
 
     @property
     @abstractmethod
@@ -77,11 +82,6 @@ class TerraformObject(ABC, UserDict):
                 self._object_type: {self._local_name: self._attributes}
             }
         }
-
-    @property
-    @abstractmethod
-    def identity(self) -> str:
-        pass
 
 
 class TerraformObjectReference:

@@ -26,7 +26,11 @@ class NodeDataSource(DataSource):
         NODES[self["name"]] = self
 
     @property
-    def identity(self) -> str:
+    def _attribute_keys(self) -> tuple[list[str], list[str]]:
+        return list(), list()
+
+    @property
+    def _local_name(self) -> str:
         return "current"
 
 
@@ -40,8 +44,8 @@ class FunctionDataSource(DataSource):
         return ["name"], list()
 
     @property
-    def identity(self) -> str:
-        return self["name"]
+    def _local_name(self) -> str:
+        return self._convert_to_local_name(self["name"])
 
 
 class AlertEmitterNode(NodeDataSource):
@@ -59,8 +63,8 @@ class AppChangeReceiverNode(NodeDataSource):
         attributes["app"] = TerraformObjectReference(APPS[self["app"]["name"]])
 
     @property
-    def identity(self) -> str:
-        return self["app"]["name"]
+    def _local_name(self) -> str:
+        return self._convert_to_local_name(self["app"]["name"])
 
 
 class AppChangeRouterNode(NodeDataSource):
@@ -101,8 +105,8 @@ class ManagedNodeType(DataSource):
         return ["name"], list()
 
     @property
-    def identity(self) -> str:
-        return self["name"]
+    def _local_name(self) -> str:
+        return self._convert_to_local_name(self["name"])
 
 
 class MessageType(DataSource):
@@ -115,8 +119,8 @@ class MessageType(DataSource):
         return ["name"], list()
 
     @property
-    def identity(self) -> str:
-        return self["name"]
+    def _local_name(self) -> str:
+        return self._convert_to_local_name(self["name"])
 
 
 class ProcessorFunction(FunctionDataSource):

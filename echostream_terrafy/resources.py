@@ -12,6 +12,10 @@ from .objects import (
 
 class Resource(TerraformObject):
     @property
+    def _local_name(self) -> str:
+        return self._convert_to_local_name(self.identity)
+
+    @property
     def _object_class(self) -> str:
         return "resource"
 
@@ -49,13 +53,13 @@ class ApiAuthenticatorFunction(FunctionResource):
 
 
 class ApiUser(Resource):
-    def __init__(self, dict=None, /, **kwargs):
-        super().__init__(dict, **kwargs)
-        APPS[self["name"]] = self
-
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["role"], ["description"]
+
+    @property
+    def _local_name(self) -> str:
+        return f"_{self.identity}_".lower()
 
     @property
     def identity(self) -> str:
@@ -160,7 +164,7 @@ class CrossTenantSendingNode(NodeResource):
         return attributes
 
 
-class EdgeResource(Resource):
+class Edge(Resource):
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return [], ["description", "maxReceiveCount"]
