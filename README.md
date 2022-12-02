@@ -104,9 +104,10 @@ Simply make any changes that you wish to it and run `terraform plan` or `terrafo
 
 ### Using the output as a terraform module
 1. Copy all of the `.tf.json` files to another folder.
-2. Add a `variables.tf` file and variablize any input (e.g. - configs) that you wish to be modifiable by module users.
-3. Add an `outputs.tf` file and output any information that needs to be accessed by module users.
-4. Register the module with a public/private Terraform registry or include it in a `modules` directory (either directly or as a `git` submodule) in another Terraform project.
+2. Remove `provider.tf.json`. The provider should be passed in by the module caller.
+3. Add a `variables.tf` file and variablize any input (e.g. - configs) that you wish to be modifiable by module users.
+4. Add an `outputs.tf` file and output any information that needs to be accessed by module users.
+5. Register the module with a public/private Terraform registry or include it in a `modules` directory (either directly or as a `git` submodule) in another Terraform project.
 
 ### Upload the output to Terraform Cloud or Terraform Enterprise
 Please see Terraform [Cloud](https://developer.hashicorp.com/terraform/cloud-docs/migrate)/[Enterprise](https://developer.hashicorp.com/terraform/enterprise/migrate) documentation for how to migrate a local terraform workspace to those products.
