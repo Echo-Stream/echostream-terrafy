@@ -61,6 +61,7 @@ class AppChangeReceiverNode(NodeDataSource):
     def _attributes(self) -> dict:
         attributes = super()._attributes
         attributes["app"] = TerraformObjectReference(APPS[self["app"]["name"]])
+        return attributes
 
     @property
     def _local_name(self) -> str:

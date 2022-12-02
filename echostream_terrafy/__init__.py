@@ -157,8 +157,8 @@ def terrafy(
     subprocess.run([terraform, "init"], capture_output=True, check=True)
     __print_green("Terraform initialized!")
 
-    __print_cyan("Importing EchoStream resources")
     if os.path.exists("terraform.tfstate"):
+        __print_yellow("WARNING: terraform.tfstate already exists, clearing all outputs and resources!")
         with open("terraform.tfstate", "rt") as f:
             tfstate = json.load(f)
         tfstate["outputs"] = {}
@@ -166,6 +166,7 @@ def terrafy(
         with open("terraform.tfstate", "wt") as f:
             json.dump(tfstate, f, indent=2)
 
+    __print_cyan("Importing EchoStream resources")
     env = dict(
         os.environ,
         ECHOSTREAM_APPSYNC_ENDPOINT=appsync_endpoint,
@@ -516,6 +517,7 @@ def __process_message_types(
             ListMessageTypes(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey) {
                 echos {
                     __typename
+                    auditor
                     bitmapperTemplate
                     description
                     name

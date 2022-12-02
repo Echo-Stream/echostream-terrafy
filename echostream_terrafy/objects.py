@@ -46,7 +46,7 @@ class TerraformObject(ABC, UserDict):
         for key in required:
             attributes[convert_key(key)] = convert_value(self[key])
         for key in optional:
-            if value := self.get(key):
+            if (value := self.get(key)) is not None:
                 attributes[convert_key(key)] = convert_value(value)
         return attributes
 

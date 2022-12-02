@@ -8,6 +8,7 @@ from .objects import (
     TerraformObject,
     TerraformObjectReference,
 )
+import simplejson as json
 
 
 class Resource(TerraformObject):
@@ -75,7 +76,6 @@ class BitmapRouterNode(NodeResource):
             "inlineBitmapper",
             "loggingLevel",
             "requirements",
-            "routeTable",
         ]
 
     @property
@@ -90,6 +90,8 @@ class BitmapRouterNode(NodeResource):
             attributes["managed_bitmapper"] = TerraformObjectReference(
                 FUNCTIONS[managed_bitmapper["name"]]
             )
+        if route_table := json.loads(self.get("routeTable", "{}")):
+            attributes["route_table"] = route_table
         return attributes
 
 
@@ -161,6 +163,7 @@ class CrossTenantSendingNode(NodeResource):
             attributes["send_message_type"] = TerraformObjectReference(
                 obj=MESSAGE_TYPES[send_message_type["name"]], attr="name"
             )
+        attributes["sequential_processing"] = attributes.get("sequential_processing", False)
         return attributes
 
 
@@ -358,9 +361,10 @@ class ProcessorNode(NodeResource):
                 FUNCTIONS[managed_processor["name"]]
             )
         if send_message_type := self.get("sendMessageType"):
-            attributes["send_message_type"] = TerraformObjectReference[
+            attributes["send_message_type"] = TerraformObjectReference(
                 MESSAGE_TYPES[send_message_type["name"]]
-            ]
+            )
+        attributes["sequential_processing"] = attributes.get("sequential_processing", False)
         return attributes
 
 
@@ -409,18 +413,14 @@ class WebhookNode(NodeResource):
     def _attributes(self) -> dict:
         attributes = dict(
             super()._attributes,
-            receive_message_type=TerraformObjectReference(
-                MESSAGE_TYPES[self["receiveMessageType"]["name"]]
+            send_message_type=TerraformObjectReference(
+                MESSAGE_TYPES[self["sendMessageType"]["name"]]
             ),
         )
         if managed_api_authenticator := self.get("managedApiAuthenticator"):
             attributes["managed_api_authenticator"] = TerraformObjectReference(
                 FUNCTIONS[managed_api_authenticator["name"]]
             )
-        if send_message_type := self.get("sendMessageType"):
-            attributes["send_message_type"] = TerraformObjectReference[
-                MESSAGE_TYPES[send_message_type["name"]]
-            ]
         return attributes
 
 
