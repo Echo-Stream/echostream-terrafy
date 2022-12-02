@@ -51,7 +51,7 @@ All output from `echostream-terrafy` executions will be written to the current w
 
 > Warning - if you did not install `terraform` into your PATH, you must let `echostream-terrafy` know where to find it. This may be accomplished by specifying the `--terraform` command-line parameter with the full path to the `terraform` executable.
 
-### Executing with ENV variables
+### Executing with environment variables
 ```shell
 source echostream-terrafy/bin/activate
 export ECHOSTREAM_APPSYNC_ENDPOINT=<api_user_appsync_endpoint>
@@ -102,7 +102,7 @@ Simply make any changes that you wish to it and run `terraform plan` or `terrafo
 
 > Warning - rerunning `echostream-terrafy` after you have made manual changes will result in those changes being overwritten!
 
-### Using the output as a terraform module
+### Using the output as a Terraform [module](https://developer.hashicorp.com/terraform/language/modules)
 1. Copy all of the `.tf.json` files to another folder.
 2. Remove `provider.tf.json`. The provider should be passed in by the module caller.
 3. Add a `variables.tf` file and variablize any input (e.g. - configs) that you wish to be modifiable by module users.
