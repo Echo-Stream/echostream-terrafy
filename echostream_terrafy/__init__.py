@@ -193,6 +193,7 @@ def terrafy(
             stdout.flush()
     stdout.write("\n")
     __print_green("EchoStream resources imported!")
+    os.remove("terraform.tfstate.backup")
     __print_cyan("Confirming that infrastructure matches configuration")
     plan_check = subprocess.run([terraform, "plan"], capture_output=True, check=True)
     if not re.search(r"No changes.", plan_check.stdout.decode(), flags=re.MULTILINE):
@@ -211,10 +212,6 @@ def __print_cyan(value: str) -> None:
 
 def __print_green(value: str) -> None:
     print(f"\033[92m{value}\033[00m")
-
-
-def __print_red(value: str) -> None:
-    print(f"\033[91m{value}\033[00m")
 
 
 def __print_yellow(value: str) -> None:
@@ -257,7 +254,7 @@ def __process_api_users(gql_client: GqlClient, tenant: str) -> list[TerraformObj
     api_users_json = dict()
     for api_user in api_users:
         api_users_json = always_merger.merge(api_users_json, api_user.encode())
-    with open("api_users.tf.json", "wt") as tf_json:
+    with open("api-users.tf.json", "wt") as tf_json:
         json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=api_users_json)
     return api_users
 
@@ -417,7 +414,7 @@ def __process_kms_keys(gql_client: GqlClient, tenant: str) -> list[TerraformObje
     kms_keys_json = dict()
     for kms_key in kms_keys:
         kms_keys_json = always_merger.merge(kms_keys_json, kms_key.encode())
-    with open("kms_keys.tf.json", "wt") as tf_json:
+    with open("kms-keys.tf.json", "wt") as tf_json:
         json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=kms_keys_json)
     return kms_keys
 
@@ -430,10 +427,14 @@ def __process_main(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
             ),
             required_version=">=1.3.5",
         ),
-        provider=dict(echostream=dict()),
     )
     with open("main.tf.json", "wt") as tf_json:
         json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=main_json)
+    provider_json = dict(
+        provider=dict(echostream=dict()),
+    )
+    with open("provider.tf.json", "wt") as tf_json:
+        json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=provider_json)
     return list()
 
 
@@ -501,7 +502,7 @@ def __process_managed_node_types(
         managed_node_types_json = always_merger.merge(
             managed_node_types_json, managed_node_type.encode()
         )
-    with open("managed_node_types.tf.json", "wt") as tf_json:
+    with open("managed-node-types.tf.json", "wt") as tf_json:
         json.dump(
             default=encode_terraform, fp=tf_json, indent=2, obj=managed_node_types_json
         )
@@ -557,7 +558,7 @@ def __process_message_types(
         message_types_json = always_merger.merge(
             message_types_json, message_type.encode()
         )
-    with open("message_types.tf.json", "wt") as tf_json:
+    with open("message-types.tf.json", "wt") as tf_json:
         json.dump(
             default=encode_terraform, fp=tf_json, indent=2, obj=message_types_json
         )
@@ -994,6 +995,6 @@ def __process_tenant_and_tenant_users(
     tenant_users_json = dict()
     for tenant_user in tenant_users:
         tenant_users_json = always_merger.merge(tenant_users_json, tenant_user.encode())
-    with open("tenant_users.tf.json", "wt") as tf_json:
+    with open("tenant-users.tf.json", "wt") as tf_json:
         json.dump(default=encode_terraform, fp=tf_json, indent=2, obj=tenant_users_json)
     return [tenant_resource] + tenant_users
