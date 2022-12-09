@@ -125,7 +125,7 @@ class CrossTenantReceivingApp(AppResource):
 class CrossTenantReceivingNode(NodeResource):
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], []
+        return list(), list()
 
 
 class CrossTenantSendingApp(AppResource):
