@@ -423,7 +423,7 @@ def __process_main(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
     main_json = dict(
         terraform=dict(
             required_providers=dict(
-                echostream=dict(source="Echo-Stream/echostream", version=">=0.0.7")
+                echostream=dict(source="Echo-Stream/echostream", version=">=1.0.0")
             ),
             required_version=">=1.3.5",
         ),
