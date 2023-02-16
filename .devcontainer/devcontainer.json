@@ -6,7 +6,7 @@
 	"image": "mcr.microsoft.com/devcontainers/python:0-3.9",
 	"features": {
 		"ghcr.io/devcontainers/features/terraform:1": {}
-	}
+	},
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
@@ -15,7 +15,7 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "pip3 install --user -r requirements.txt",
+	"postStartCommand": "pip install --upgrade pip -r requirements.dev.txt"
 
 	// Configure tool-specific properties.
 	// "customizations": {},
