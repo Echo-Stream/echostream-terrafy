@@ -1,7 +1,7 @@
-argh==0.26.2
+argh==0.28.1
 black
 build
 deepmerge==1.1.0
 gql[requests]==3.4.0
 pycognito==2022.12.0
-simplejson==3.18.1
+simplejson==3.18.3
