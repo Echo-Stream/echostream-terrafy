@@ -158,7 +158,9 @@ def terrafy(
     __print_green("Terraform initialized!")
 
     if os.path.exists("terraform.tfstate"):
-        __print_yellow("WARNING: terraform.tfstate already exists, clearing all outputs and resources!")
+        __print_yellow(
+            "WARNING: terraform.tfstate already exists, clearing all outputs and resources!"
+        )
         with open("terraform.tfstate", "rt") as f:
             tfstate = json.load(f)
         tfstate["outputs"] = {}
@@ -423,7 +425,7 @@ def __process_main(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
     main_json = dict(
         terraform=dict(
             required_providers=dict(
-                echostream=dict(source="Echo-Stream/echostream", version=">=1.0.0")
+                echostream=dict(source="Echo-Stream/echostream", version=">=1.1.0")
             ),
             required_version=">=1.3.5",
         ),
@@ -571,7 +573,7 @@ def __process_nodes_and_edges(
     query = gql(
         """
         query listNodes($tenant: String!, $exclusiveStartKey: AWSJSON) {
-            ListNodes(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey) {
+            ListNodes(tenant: $tenant, exclusiveStartKey: $exclusiveStartKey, types: ["!WebSubSubcriptionNode"]) {
                 echos {
                     __typename
                     description
@@ -919,6 +921,23 @@ def __process_nodes_and_edges(
                         sendMessageType {
                             name
                         }
+                    }
+                    ... on WebSubHubNode {
+                        config
+                        defaultLeaseSeconds
+                        deliveryRetries
+                        inlineApiAuthenticator
+                        loggingLevel
+                        managedApiAuthenticator {
+                            name
+                        }
+                        maxLeaseSeconds
+                        receiveMessageType {
+                            name
+                        }
+                        requirements
+                        signatureAlgorithm
+                        subscriptionSecurity
                     }
                 }
                 lastEvaluatedKey

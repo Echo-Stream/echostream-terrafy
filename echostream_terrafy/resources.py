@@ -163,7 +163,9 @@ class CrossTenantSendingNode(NodeResource):
             attributes["send_message_type"] = TerraformObjectReference(
                 obj=MESSAGE_TYPES[send_message_type["name"]], attr="name"
             )
-        attributes["sequential_processing"] = attributes.get("sequential_processing", False)
+        attributes["sequential_processing"] = attributes.get(
+            "sequential_processing", False
+        )
         return attributes
 
 
@@ -364,7 +366,9 @@ class ProcessorNode(NodeResource):
             attributes["send_message_type"] = TerraformObjectReference(
                 MESSAGE_TYPES[send_message_type["name"]]
             )
-        attributes["sequential_processing"] = attributes.get("sequential_processing", False)
+        attributes["sequential_processing"] = attributes.get(
+            "sequential_processing", False
+        )
         return attributes
 
 
@@ -417,6 +421,32 @@ class WebhookNode(NodeResource):
                 MESSAGE_TYPES[self["sendMessageType"]["name"]]
             ),
         )
+        if managed_api_authenticator := self.get("managedApiAuthenticator"):
+            attributes["managed_api_authenticator"] = TerraformObjectReference(
+                FUNCTIONS[managed_api_authenticator["name"]]
+            )
+        return attributes
+
+
+class WebSubHubNode(NodeResource):
+    @property
+    def _attribute_keys(self) -> tuple[list[str], list[str]]:
+        return ["name"], [
+            "config",
+            "defaultLeaseSeconds",
+            "deliverRetries",
+            "description",
+            "inlineApiAuthenticator",
+            "maxLeaseSeconds",
+            "loggingLevel",
+            "requirements",
+            "signatureAlgorithm",
+            "subscriptionSecurity",
+        ]
+
+    @property
+    def _attributes(self) -> dict:
+        attributes = super()._attributes
         if managed_api_authenticator := self.get("managedApiAuthenticator"):
             attributes["managed_api_authenticator"] = TerraformObjectReference(
                 FUNCTIONS[managed_api_authenticator["name"]]
