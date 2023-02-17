@@ -20,7 +20,6 @@ def encode_terraform(obj: Any) -> Any:
 
 
 class TerraformObject(ABC, UserDict):
-
     __LOCAL_NAME_PATTERN = re.compile(r"[^A-Za-z0-9\_]")
     __CAMEL_CASE_PATTERN = re.compile(r"(?<!^)(?=[A-Z])")
 
