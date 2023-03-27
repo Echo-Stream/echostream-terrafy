@@ -4,7 +4,7 @@ EchoStream provides a graphical way to design, build and update processing an in
 networks in real time. 
 
 However, there are teams that wish to manage all resources (EchoStream and others, such as 
-Azure or AWS) in Infrastructure as Code (IaC). If you have designed alarge network of 
+Azure or AWS) in Infrastructure as Code (IaC). If you have designed a large network of 
 processing resource in EchoStream, the ideal solution would be to introspect and extract
 those resources into Terraform scripts.
 
