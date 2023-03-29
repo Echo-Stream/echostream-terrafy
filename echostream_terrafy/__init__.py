@@ -1,3 +1,4 @@
+"""EchoStream Terraform module generator."""
 import os
 import re
 import subprocess
@@ -28,6 +29,7 @@ DEFAULT_APPSYNC_ENDPOINT = "https://api-prod.us-east-1.echo.stream/graphql"
 
 
 def main():
+    """Dispatch the command line interface."""
     dispatch_command(terrafy)
 
 
@@ -221,6 +223,7 @@ def __print_yellow(value: str) -> None:
 
 
 def __process_api_users(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
+    """Process API Users"""
     query = gql(
         """
         query listApiUsers($tenant: String!, $exclusiveStartKey: AWSJSON) {
@@ -262,6 +265,7 @@ def __process_api_users(gql_client: GqlClient, tenant: str) -> list[TerraformObj
 
 
 def __process_apps(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
+    """Process Apps"""
     query = gql(
         """
         query listApps($tenant: String!, $exclusiveStartKey: AWSJSON) {
@@ -322,6 +326,7 @@ def __process_apps(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
 
 
 def __process_functions(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
+    """Process Functions"""
     query = gql(
         """
         query listFunctions($tenant: String!, $exclusiveStartKey: AWSJSON) {
@@ -382,6 +387,7 @@ def __process_functions(gql_client: GqlClient, tenant: str) -> list[TerraformObj
 
 
 def __process_kms_keys(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
+    """Process KMS Keys"""
     query = gql(
         """
         query listKmsKeys($tenant: String!, $exclusiveStartKey: AWSJSON) {
@@ -422,6 +428,7 @@ def __process_kms_keys(gql_client: GqlClient, tenant: str) -> list[TerraformObje
 
 
 def __process_main(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
+    """Process Main"""
     main_json = dict(
         terraform=dict(
             required_providers=dict(
@@ -443,6 +450,7 @@ def __process_main(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
 def __process_managed_node_types(
     gql_client: GqlClient, tenant: str
 ) -> list[TerraformObject]:
+    """Process Managed Node Types"""
     query = gql(
         """
         query listManagedNodeTypes($tenant: String!, $exclusiveStartKey: AWSJSON) {
@@ -514,6 +522,7 @@ def __process_managed_node_types(
 def __process_message_types(
     gql_client: GqlClient, tenant: str
 ) -> list[TerraformObject]:
+    """Process Message Types"""
     query = gql(
         """
         query listMessageTypes($tenant: String!, $exclusiveStartKey: AWSJSON) {
@@ -570,6 +579,7 @@ def __process_message_types(
 def __process_nodes_and_edges(
     gql_client: GqlClient, tenant: str
 ) -> list[TerraformObject]:
+    """Process Nodes and Edges"""
     query = gql(
         """
         query listNodes($tenant: String!, $exclusiveStartKey: AWSJSON) {
@@ -984,6 +994,7 @@ def __process_nodes_and_edges(
 def __process_tenant_and_tenant_users(
     gql_client: GqlClient, tenant: str
 ) -> list[TerraformObject]:
+    """Process tenant and tenant users."""
     query = gql(
         """
         query getTenant($tenant: String!) {
