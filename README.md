@@ -82,6 +82,7 @@ deactivate
 
 | Filename | Content |
 | --- | --- |
+| artifacts | Directory of Python code, config JSON and readme artifacts for resources |
 | api-users.tf.json | The ApiUser resources |
 | apps.tf.json | The App resources |
 | functions.tf.json | The Function data sources and resources |
@@ -103,7 +104,7 @@ Simply make any changes that you wish to it and run `terraform plan` or `terrafo
 > Warning - rerunning `echostream-terrafy` after you have made manual changes will result in those changes being overwritten!
 
 ### Using the output as a Terraform [module](https://developer.hashicorp.com/terraform/language/modules)
-1. Copy all of the `.tf.json` files to another folder.
+1. Copy all of the `.tf.json` files and the `artifacts` directory to another folder.
 2. Remove `provider.tf.json`. The provider should be passed in by the module caller.
 3. Add a `variables.tf` file and variablize any input (e.g. - configs) that you wish to be modifiable by module users.
 4. Add an `outputs.tf` file and output any information that needs to be accessed by module users.
