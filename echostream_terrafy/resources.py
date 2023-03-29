@@ -10,6 +10,7 @@ from .objects import (
     TerraformObjectReference,
 )
 import simplejson as json
+from os import path, makedirs
 
 
 class Resource(TerraformObject):
@@ -27,7 +28,11 @@ class Resource(TerraformObject):
     @property
     def _object_class(self) -> str:
         return "resource"
-
+    
+    def _open(self, file_name: str) -> open:
+        makedirs(self._artifacts_path, exist_ok=True)
+        return open(path.join(self._artifacts_path, file_name), "wt")
+    
     @property
     def address(self) -> str:
         return f"{self._object_type}.{self._local_name}"
@@ -69,11 +74,13 @@ class ConfigResource(Resource):
     def _attributes(self) -> dict:
         attributes = super()._attributes
         if self.get("config"):
-            attributes["config"] = f'${{file("${{path.module}}/{self._artifacts_path}/config.json")}}'
+            attributes["config"] = f'${{file("{path.join("${path.module}", self._artifacts_path, "config.json")}")}}'
         return attributes
     
     def encode(self) -> dict:
-
+        if config := self.get("config"):
+            with self._open("config.json") as f:
+                f.write(config)
         return super().encode()
 
 class ApiAuthenticatorFunction(FunctionResource):
@@ -100,13 +107,12 @@ class ApiUser(Resource):
         return self["username"]
 
 
-class BitmapRouterNode(NodeResource):
+class BitmapRouterNode(ConfigResource, NodeResource):
     """Terraform resource for a bitmap router node."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
             "inlineBitmapper",
             "loggingLevel",
@@ -147,12 +153,12 @@ class BitmapperFunction(FunctionResource):
         )
 
 
-class CrossAccountApp(AppResource):
+class CrossAccountApp(ConfigResource, AppResource):
     """Terraform resource for a cross-account app."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["account", "name"], ["config", "description", "tableAccess"]
+        return ["account", "name"], ["description", "tableAccess"]
 
 
 class CrossTenantReceivingApp(AppResource):
@@ -179,13 +185,12 @@ class CrossTenantSendingApp(AppResource):
         return ["name", "receivingApp", "receivingTenant"], ["description"]
 
 
-class CrossTenantSendingNode(NodeResource):
+class CrossTenantSendingNode(ConfigResource, NodeResource):
     """Terraform resource for a cross-tenant sending node."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
             "inlineProcessor",
             "loggingLevel",
@@ -241,20 +246,20 @@ class Edge(Resource):
         return f'{self["source"]["name"]}|{self["target"]["name"]}'
 
 
-class ExternalApp(AppResource):
+class ExternalApp(ConfigResource, AppResource):
     """Terraform resource for an external app."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description", "tableAccess"]
+        return ["name"], ["description", "tableAccess"]
 
 
-class ExternalNode(NodeResource):
+class ExternalNode(ConfigResource, NodeResource):
     """Terraform resource for an external node."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description"]
+        return ["name"], ["description"]
 
     @property
     def _attributes(self) -> dict:
@@ -310,20 +315,20 @@ class LoadBalancerNode(NodeResource):
         )
 
 
-class ManagedApp(AppResource):
+class ManagedApp(ConfigResource, AppResource):
     """Terraform resource for a managed app."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description", "tableAccess"]
+        return ["name"], ["description", "tableAccess"]
 
 
-class ManagedNode(NodeResource):
+class ManagedNode(ConfigResource, NodeResource):
     """Terraform resource for a managed node."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description", "loggingLevel", "mounts", "ports"]
+        return ["name"], ["description", "loggingLevel", "mounts", "ports"]
 
     @property
     def _attributes(self) -> dict:
@@ -407,13 +412,12 @@ class ProcessorFunction(FunctionResource):
         return attributes
 
 
-class ProcessorNode(NodeResource):
+class ProcessorNode(ConfigResource, NodeResource):
     """Terraform resource for a processor node."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
             "inlineProcessor",
             "loggingLevel",
@@ -443,12 +447,12 @@ class ProcessorNode(NodeResource):
         return attributes
 
 
-class Tenant(Resource):
+class Tenant(ConfigResource, Resource):
     """Terraform resource for a tenant."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return [], ["config", "description"]
+        return [], ["description"]
 
     @property
     def _local_name(self) -> str:
@@ -479,13 +483,12 @@ class TimerNode(NodeResource):
         return ["name", "scheduleExpression"], ["description"]
 
 
-class WebhookNode(NodeResource):
+class WebhookNode(ConfigResource, NodeResource):
     """Terraform resource for a webhook node."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
             "inlineApiAuthenticator",
             "loggingLevel",
@@ -507,13 +510,12 @@ class WebhookNode(NodeResource):
         return attributes
 
 
-class WebSubHubNode(NodeResource):
+class WebSubHubNode(ConfigResource, NodeResource):
     """Terraform resource for a WebSub hub node."""
 
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "defaultLeaseSeconds",
             "deliverRetries",
             "description",
