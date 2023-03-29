@@ -156,7 +156,8 @@ def terrafy(
 
     if os.path.exists("terraform.tfstate"):
         cprint(
-            "WARNING: terraform.tfstate already exists, clearing all outputs and resources!", "yellow"
+            "WARNING: terraform.tfstate already exists, clearing all outputs and resources!",
+            "yellow",
         )
         with open("terraform.tfstate", "rt") as f:
             tfstate = json.load(f)
@@ -197,7 +198,8 @@ def terrafy(
     plan_check = subprocess.run([terraform, "plan"], capture_output=True, check=True)
     if not re.search(r"No changes.", plan_check.stdout.decode(), flags=re.MULTILINE):
         cprint(
-            f"WARNING: Tenant {tenant} infrastructure does not match the configuration. Plan output below:", "yellow"
+            f"WARNING: Tenant {tenant} infrastructure does not match the configuration. Plan output below:",
+            "yellow",
         )
         stdout.write("\n")
         print(plan_check.stdout.decode())
