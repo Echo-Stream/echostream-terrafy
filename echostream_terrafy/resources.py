@@ -1,3 +1,4 @@
+"""Terraform resources.""" ""
 from .objects import (
     APPS,
     FUNCTIONS,
@@ -12,6 +13,8 @@ import simplejson as json
 
 
 class Resource(TerraformObject):
+    """Base class for Terraform resources."""
+
     @property
     def _local_name(self) -> str:
         return self._convert_to_local_name(self.identity)
@@ -26,34 +29,45 @@ class Resource(TerraformObject):
 
     @property
     def identity(self) -> str:
+        """The identity of the resource."""
         return self["name"]
 
 
 class AppResource(Resource):
+    """Base class for Terraform app resources."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         APPS[self["name"]] = self
 
 
 class FunctionResource(Resource):
+    """Base class for Terraform function resources."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         FUNCTIONS[self["name"]] = self
 
 
 class NodeResource(Resource):
+    """Base class for Terraform node resources."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         NODES[self["name"]] = self
 
 
 class ApiAuthenticatorFunction(FunctionResource):
+    """Terraform resource for an API authenticator function."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["code", "description", "name"], ["readme", "requirements"]
 
 
 class ApiUser(Resource):
+    """Terraform resource for an API user"""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["role"], ["description"]
@@ -68,6 +82,8 @@ class ApiUser(Resource):
 
 
 class BitmapRouterNode(NodeResource):
+    """Terraform resource for a bitmap router node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
@@ -96,6 +112,8 @@ class BitmapRouterNode(NodeResource):
 
 
 class BitmapperFunction(FunctionResource):
+    """Terraform resource for a bitmapper function."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["code", "description", "name"], ["readme", "requirements"]
@@ -111,30 +129,40 @@ class BitmapperFunction(FunctionResource):
 
 
 class CrossAccountApp(AppResource):
+    """Terraform resource for a cross-account app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["account", "name"], ["config", "description", "tableAccess"]
 
 
 class CrossTenantReceivingApp(AppResource):
+    """Terraform resource for a cross-tenant receiving app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name", "sendingTenant"], ["description"]
 
 
 class CrossTenantReceivingNode(NodeResource):
+    """Terraform resource for a cross-tenant receiving node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return list(), list()
 
 
 class CrossTenantSendingApp(AppResource):
+    """Terraform resource for a cross-tenant sending app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name", "receivingApp", "receivingTenant"], ["description"]
 
 
 class CrossTenantSendingNode(NodeResource):
+    """Terraform resource for a cross-tenant sending node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
@@ -170,6 +198,8 @@ class CrossTenantSendingNode(NodeResource):
 
 
 class Edge(Resource):
+    """Terraform resource for an edge."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return [], ["description", "maxReceiveCount"]
@@ -193,12 +223,16 @@ class Edge(Resource):
 
 
 class ExternalApp(AppResource):
+    """Terraform resource for an external app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["config", "description", "tableAccess"]
 
 
 class ExternalNode(NodeResource):
+    """Terraform resource for an external node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["config", "description"]
@@ -221,12 +255,16 @@ class ExternalNode(NodeResource):
 
 
 class FilesDotComWebhookNode(NodeResource):
+    """Terraform resource for a Files.com webhook node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["description"]
 
 
 class KmsKey(Resource):
+    """Terraform resource for a KMS key."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         KMS_KEYS[self["name"]] = self
@@ -237,6 +275,8 @@ class KmsKey(Resource):
 
 
 class LoadBalancerNode(NodeResource):
+    """Terraform resource for a load balancer node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["description"]
@@ -252,12 +292,16 @@ class LoadBalancerNode(NodeResource):
 
 
 class ManagedApp(AppResource):
+    """Terraform resource for a managed app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["config", "description", "tableAccess"]
 
 
 class ManagedNode(NodeResource):
+    """Terraform resource for a managed node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["config", "description", "loggingLevel", "mounts", "ports"]
@@ -274,6 +318,8 @@ class ManagedNode(NodeResource):
 
 
 class ManagedNodeType(Resource):
+    """Terraform resource for a managed node type."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         MANAGED_NODE_TYPES[self["name"]] = self
@@ -302,6 +348,8 @@ class ManagedNodeType(Resource):
 
 
 class MessageType(Resource):
+    """Terraform resource for a message type."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         MESSAGE_TYPES[self["name"]] = self
@@ -319,6 +367,8 @@ class MessageType(Resource):
 
 
 class ProcessorFunction(FunctionResource):
+    """Terraform resource for a processor function."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["code", "description", "name"], ["readme", "requirements"]
@@ -339,6 +389,8 @@ class ProcessorFunction(FunctionResource):
 
 
 class ProcessorNode(NodeResource):
+    """Terraform resource for a processor node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
@@ -373,6 +425,8 @@ class ProcessorNode(NodeResource):
 
 
 class Tenant(Resource):
+    """Terraform resource for a tenant."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return [], ["config", "description"]
@@ -387,6 +441,8 @@ class Tenant(Resource):
 
 
 class TenantUser(Resource):
+    """Terraform resource for a tenant user."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["email", "role"], ["status"]
@@ -397,12 +453,16 @@ class TenantUser(Resource):
 
 
 class TimerNode(NodeResource):
+    """Terraform resource for a timer node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name", "scheduleExpression"], ["description"]
 
 
 class WebhookNode(NodeResource):
+    """Terraform resource for a webhook node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
@@ -429,6 +489,8 @@ class WebhookNode(NodeResource):
 
 
 class WebSubHubNode(NodeResource):
+    """Terraform resource for a WebSub hub node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
@@ -455,5 +517,6 @@ class WebSubHubNode(NodeResource):
 
 
 def factory(data: dict) -> Resource:
+    """Create a resource from a dictionary."""
     cls = globals().get(data["__typename"])
     return cls(data) if cls else None
