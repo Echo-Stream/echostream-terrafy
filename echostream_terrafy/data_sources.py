@@ -1,5 +1,6 @@
 """Data sources for Terraform objects."""
 from __future__ import annotations
+
 from .objects import (
     APPS,
     FUNCTIONS,

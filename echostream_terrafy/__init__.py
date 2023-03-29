@@ -24,7 +24,8 @@ from .objects import (
     TerraformObject,
     encode_terraform,
 )
-from .resources import factory as resource_factory, Resource
+from .resources import Resource
+from .resources import factory as resource_factory
 
 DEFAULT_APPSYNC_ENDPOINT = "https://api-prod.us-east-1.echo.stream/graphql"
 

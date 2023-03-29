@@ -1,4 +1,9 @@
 """Terraform resources.""" ""
+from io import TextIOBase
+from os import makedirs, path
+
+import simplejson as json
+
 from .objects import (
     APPS,
     FUNCTIONS,
@@ -9,9 +14,6 @@ from .objects import (
     TerraformObject,
     TerraformObjectReference,
 )
-import simplejson as json
-from os import path, makedirs
-from io import TextIOBase
 
 
 class Resource(TerraformObject):
