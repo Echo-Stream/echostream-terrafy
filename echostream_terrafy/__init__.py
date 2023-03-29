@@ -12,6 +12,7 @@ from gql import Client as GqlClient
 from gql import gql
 from gql.transport.requests import RequestsHTTPTransport
 from pycognito.utils import RequestsSrpAuth
+from termcolor import colored, cprint
 
 from .data_sources import factory as data_source_factory
 from .objects import (
@@ -33,13 +34,7 @@ def main():
     dispatch_command(terrafy)
 
 
-"""
-@wrap_errors(
-    errors=[Exception], processor=lambda exc_info: f"\033[91m{exc_info}\033[00m"
-)
-"""
-
-
+@wrap_errors(processor=lambda err: colored(str(err), "red"))
 @arg(
     "--appsync-endpoint",
     help=f"The ApiUser's AppSync Endpoint. Defaults to {DEFAULT_APPSYNC_ENDPOINT}. Environment variable - ECHOSTREAM_APPSYNC_ENDPOINT",
@@ -120,7 +115,7 @@ def terrafy(
             else f"Terraform version must be >= 1.3.5, found {m.group(1)}"
         )
 
-    __print_cyan(f"Logging user {username} in to Tenant {tenant}")
+    cprint(f"Logging user {username} in to Tenant {tenant}", "cyan")
     gql_client = GqlClient(
         fetch_schema_from_transport=True,
         transport=RequestsHTTPTransport(
@@ -134,9 +129,9 @@ def terrafy(
             url=appsync_endpoint,
         ),
     )
-    __print_green("Login successful!")
+    cprint("Login successful!", "green")
 
-    __print_cyan(f"Terrafying EchoStream Tenant {tenant}")
+    cprint(f"Terrafying EchoStream Tenant {tenant}", "cyan")
 
     terraform_objects: list[TerraformObject] = list()
     for getter in (
@@ -150,18 +145,18 @@ def terrafy(
         __process_apps,
         __process_nodes_and_edges,
     ):
-        stdout.write("\033[93m.\033[00m")
+        stdout.write(colored(".", "light_grey"))
         stdout.flush()
         terraform_objects.extend(getter(gql_client, tenant))
     stdout.write("\n")
 
-    __print_cyan("Initializing terraform")
+    cprint("Initializing terraform", "cyan")
     subprocess.run([terraform, "init"], capture_output=True, check=True)
-    __print_green("Terraform initialized!")
+    cprint("Terraform initialized!", "green")
 
     if os.path.exists("terraform.tfstate"):
-        __print_yellow(
-            "WARNING: terraform.tfstate already exists, clearing all outputs and resources!"
+        cprint(
+            "WARNING: terraform.tfstate already exists, clearing all outputs and resources!", "yellow"
         )
         with open("terraform.tfstate", "rt") as f:
             tfstate = json.load(f)
@@ -170,7 +165,7 @@ def terrafy(
         with open("terraform.tfstate", "wt") as f:
             json.dump(tfstate, f, indent=2)
 
-    __print_cyan("Importing EchoStream resources")
+    cprint("Importing EchoStream resources", "cyan")
     env = dict(
         os.environ,
         ECHOSTREAM_APPSYNC_ENDPOINT=appsync_endpoint,
@@ -193,33 +188,21 @@ def terrafy(
                 raise Exception(
                     f"Error importing {obj.address}\n{cpe.stdout}\n{cpe.stderr}"
                 )
-            stdout.write("\033[93m.\033[00m")
+            stdout.write(colored(".", "light_grey"))
             stdout.flush()
     stdout.write("\n")
-    __print_green("EchoStream resources imported!")
+    cprint("EchoStream resources imported!", "green")
     os.remove("terraform.tfstate.backup")
-    __print_cyan("Confirming that infrastructure matches configuration")
+    cprint("Confirming that infrastructure matches configuration", "cyan")
     plan_check = subprocess.run([terraform, "plan"], capture_output=True, check=True)
     if not re.search(r"No changes.", plan_check.stdout.decode(), flags=re.MULTILINE):
-        __print_yellow(
-            f"WARNING: Tenant {tenant} infrastructure does not match the configuration. Plan output below:"
+        cprint(
+            f"WARNING: Tenant {tenant} infrastructure does not match the configuration. Plan output below:", "yellow"
         )
         stdout.write("\n")
         print(plan_check.stdout.decode())
 
-    __print_green(f"EchoStream Tenant {tenant} Terrafy'd!!!")
-
-
-def __print_cyan(value: str) -> None:
-    print(f"\033[96m{value}\033[00m")
-
-
-def __print_green(value: str) -> None:
-    print(f"\033[92m{value}\033[00m")
-
-
-def __print_yellow(value: str) -> None:
-    print(f"\033[93m{value}\033[00m")
+    cprint(f"EchoStream Tenant {tenant} Terrafy'd!!!", "green")
 
 
 def __process_api_users(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
