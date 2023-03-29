@@ -1,3 +1,9 @@
+"""Terraform resources.""" ""
+from io import TextIOBase
+from os import makedirs, path
+
+import simplejson as json
+
 from .objects import (
     APPS,
     FUNCTIONS,
@@ -8,10 +14,20 @@ from .objects import (
     TerraformObject,
     TerraformObjectReference,
 )
-import simplejson as json
 
 
 class Resource(TerraformObject):
+    """Base class for Terraform resources."""
+
+    @property
+    def __artifacts_path(self) -> str:
+        """Return the path to the resource's artifacts."""
+        return f"artifacts/{self._object_type}/{self._local_name}"
+
+    def _file(self, file_name: str) -> str:
+        """Return a Terraform file reference to an artifact file."""
+        return f'${{file("{path.join("${path.module}", self.__artifacts_path, file_name)}")}}'
+
     @property
     def _local_name(self) -> str:
         return self._convert_to_local_name(self.identity)
@@ -20,40 +36,93 @@ class Resource(TerraformObject):
     def _object_class(self) -> str:
         return "resource"
 
+    def _open_artifact(self, file_name: str) -> TextIOBase:
+        """Open an artifact file for writing."""
+        makedirs(self.__artifacts_path, exist_ok=True)
+        return open(path.join(self.__artifacts_path, file_name), "wt")
+
     @property
     def address(self) -> str:
         return f"{self._object_type}.{self._local_name}"
 
     @property
     def identity(self) -> str:
+        """The identity of the resource."""
         return self["name"]
 
 
 class AppResource(Resource):
+    """Base class for Terraform app resources."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         APPS[self["name"]] = self
 
 
 class FunctionResource(Resource):
+    """Base class for Terraform function resources."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         FUNCTIONS[self["name"]] = self
 
+    @property
+    def _attribute_keys(self) -> tuple[list[str], list[str]]:
+        return ["description", "name"], ["requirements"]
+
+    @property
+    def _attributes(self) -> dict:
+        attributes = dict(
+            super()._attributes,
+            code=self._file("code.py"),
+        )
+        if self.get("readme"):
+            attributes["readme"] = self._file("readme.md")
+        return attributes
+
+    def encode(self) -> dict:
+        with self._open_artifact("code.py") as f:
+            f.write(self["code"])
+        if readme := self.get("readme"):
+            with self._open_artifact("readme.md") as f:
+                f.write(readme)
+        return super().encode()
+
 
 class NodeResource(Resource):
+    """Base class for Terraform node resources."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         NODES[self["name"]] = self
 
 
-class ApiAuthenticatorFunction(FunctionResource):
+class ConfigResource(Resource):
+    """Base class for Terraform config resources."""
+
     @property
-    def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["code", "description", "name"], ["readme", "requirements"]
+    def _attributes(self) -> dict:
+        attributes = super()._attributes
+        if self.get("config"):
+            attributes["config"] = self._file("config.json")
+        return attributes
+
+    def encode(self) -> dict:
+        if config := self.get("config"):
+            with self._open_artifact("config.json") as f:
+                f.write(config)
+        return super().encode()
+
+
+class ApiAuthenticatorFunction(FunctionResource):
+    """Terraform resource for an API authenticator function."""
+
+    pass
 
 
 class ApiUser(Resource):
+    """Terraform resource for an API user"""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["role"], ["description"]
@@ -67,13 +136,13 @@ class ApiUser(Resource):
         return self["username"]
 
 
-class BitmapRouterNode(NodeResource):
+class BitmapRouterNode(ConfigResource, NodeResource):
+    """Terraform resource for a bitmap router node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
-            "inlineBitmapper",
             "loggingLevel",
             "requirements",
         ]
@@ -86,6 +155,8 @@ class BitmapRouterNode(NodeResource):
                 MESSAGE_TYPES[self["receiveMessageType"]["name"]]
             ),
         )
+        if self.get("inlineBitmapper"):
+            attributes["inline_bitmapper"] = self._file("inline_bitmapper.py")
         if managed_bitmapper := self.get("managedBitmapper"):
             attributes["managed_bitmapper"] = TerraformObjectReference(
                 FUNCTIONS[managed_bitmapper["name"]]
@@ -94,11 +165,15 @@ class BitmapRouterNode(NodeResource):
             attributes["route_table"] = route_table
         return attributes
 
+    def encode(self) -> dict:
+        if inline_bitmapper := self.get("inlineBitmapper"):
+            with self._open_artifact("inline_bitmapper.py") as f:
+                f.write(inline_bitmapper)
+        return super().encode()
+
 
 class BitmapperFunction(FunctionResource):
-    @property
-    def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["code", "description", "name"], ["readme", "requirements"]
+    """Terraform resource for a bitmapper function."""
 
     @property
     def _attributes(self) -> dict:
@@ -110,37 +185,45 @@ class BitmapperFunction(FunctionResource):
         )
 
 
-class CrossAccountApp(AppResource):
+class CrossAccountApp(ConfigResource, AppResource):
+    """Terraform resource for a cross-account app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["account", "name"], ["config", "description", "tableAccess"]
+        return ["account", "name"], ["description", "tableAccess"]
 
 
 class CrossTenantReceivingApp(AppResource):
+    """Terraform resource for a cross-tenant receiving app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name", "sendingTenant"], ["description"]
 
 
 class CrossTenantReceivingNode(NodeResource):
+    """Terraform resource for a cross-tenant receiving node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return list(), list()
 
 
 class CrossTenantSendingApp(AppResource):
+    """Terraform resource for a cross-tenant sending app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name", "receivingApp", "receivingTenant"], ["description"]
 
 
-class CrossTenantSendingNode(NodeResource):
+class CrossTenantSendingNode(ConfigResource, NodeResource):
+    """Terraform resource for a cross-tenant sending node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
-            "inlineProcessor",
             "loggingLevel",
             "requirements",
             "sequentialProcessing",
@@ -155,6 +238,8 @@ class CrossTenantSendingNode(NodeResource):
                 MESSAGE_TYPES[self["receiveMessageType"]["name"]]
             ),
         )
+        if self.get("inlineProcessor"):
+            attributes["inline_processor"] = self._file("inline_processor.py")
         if managed_processor := self.get("managedProcessor"):
             attributes["managed_processor"] = TerraformObjectReference(
                 obj=FUNCTIONS[managed_processor["name"]], attr="name"
@@ -168,8 +253,16 @@ class CrossTenantSendingNode(NodeResource):
         )
         return attributes
 
+    def encode(self) -> dict:
+        if inline_processor := self.get("inlineProcessor"):
+            with self._open_artifact("inline_processor.py") as f:
+                f.write(inline_processor)
+        return super().encode()
+
 
 class Edge(Resource):
+    """Terraform resource for an edge."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return [], ["description", "maxReceiveCount"]
@@ -192,16 +285,20 @@ class Edge(Resource):
         return f'{self["source"]["name"]}|{self["target"]["name"]}'
 
 
-class ExternalApp(AppResource):
+class ExternalApp(ConfigResource, AppResource):
+    """Terraform resource for an external app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description", "tableAccess"]
+        return ["name"], ["description", "tableAccess"]
 
 
-class ExternalNode(NodeResource):
+class ExternalNode(ConfigResource, NodeResource):
+    """Terraform resource for an external node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description"]
+        return ["name"], ["description"]
 
     @property
     def _attributes(self) -> dict:
@@ -221,12 +318,16 @@ class ExternalNode(NodeResource):
 
 
 class FilesDotComWebhookNode(NodeResource):
+    """Terraform resource for a Files.com webhook node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["description"]
 
 
 class KmsKey(Resource):
+    """Terraform resource for a KMS key."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         KMS_KEYS[self["name"]] = self
@@ -237,6 +338,8 @@ class KmsKey(Resource):
 
 
 class LoadBalancerNode(NodeResource):
+    """Terraform resource for a load balancer node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], ["description"]
@@ -251,16 +354,20 @@ class LoadBalancerNode(NodeResource):
         )
 
 
-class ManagedApp(AppResource):
+class ManagedApp(ConfigResource, AppResource):
+    """Terraform resource for a managed app."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description", "tableAccess"]
+        return ["name"], ["description", "tableAccess"]
 
 
-class ManagedNode(NodeResource):
+class ManagedNode(ConfigResource, NodeResource):
+    """Terraform resource for a managed node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["name"], ["config", "description", "loggingLevel", "mounts", "ports"]
+        return ["name"], ["description", "loggingLevel", "mounts", "ports"]
 
     @property
     def _attributes(self) -> dict:
@@ -274,6 +381,8 @@ class ManagedNode(NodeResource):
 
 
 class ManagedNodeType(Resource):
+    """Terraform resource for a managed node type."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         MANAGED_NODE_TYPES[self["name"]] = self
@@ -281,15 +390,17 @@ class ManagedNodeType(Resource):
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["description", "imageUri", "name"], [
-            "configTemplate",
             "mountRequirements",
             "portRequirements",
-            "readme",
         ]
 
     @property
     def _attributes(self) -> dict:
         attributes = (super()._attributes,)
+        if self.get("configTemplate"):
+            attributes["config_template"] = self._file("config_template.json")
+        if self.get("readme"):
+            attributes["readme"] = self._file("readme.md")
         if receive_message_type := self.get("receiveMessageType"):
             attributes["receive_message_type"] = TerraformObjectReference(
                 MESSAGE_TYPES[receive_message_type["name"]]
@@ -300,8 +411,19 @@ class ManagedNodeType(Resource):
             )
         return attributes
 
+    def encode(self) -> dict:
+        if config_template := self.get("configTemplate"):
+            with self._open_artifact("config_template.json", "w") as f:
+                f.write(config_template)
+        if readme := self.get("readme"):
+            with self._open_artifact("readme.md") as f:
+                f.write(readme)
+        return super().encode()
+
 
 class MessageType(Resource):
+    """Terraform resource for a message type."""
+
     def __init__(self, dict=None, /, **kwargs):
         super().__init__(dict, **kwargs)
         MESSAGE_TYPES[self["name"]] = self
@@ -309,19 +431,40 @@ class MessageType(Resource):
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return [
-            "auditor",
-            "bitmapperTemplate",
             "description",
             "name",
-            "processorTemplate",
-            "sampleMessage",
-        ], ["readme", "requirements"]
+        ], ["requirements"]
+
+    @property
+    def _attributes(self) -> dict:
+        attributes = dict(
+            super()._attributes,
+            auditor=self._file("auditor.py"),
+            bitmapper_template=self._file("bitmapper_template.py"),
+            processor_template=self._file("processor_template.py"),
+            sample_message=self._file("sample_message.txt"),
+        )
+        if self.get("readme"):
+            attributes["readme"] = self._file("readme.md")
+        return attributes
+
+    def encode(self) -> dict:
+        with self._open_artifact("auditor.py") as f:
+            f.write(self["auditor"])
+        with self._open_artifact("bitmapper_template.py") as f:
+            f.write(self["bitmapperTemplate"])
+        with self._open_artifact("processor_template.py") as f:
+            f.write(self["processorTemplate"])
+        with self._open_artifact("sample_message.txt") as f:
+            f.write(self["sampleMessage"])
+        if readme := self.get("readme"):
+            with self._open_artifact("readme.md") as f:
+                f.write(readme)
+        return super().encode()
 
 
 class ProcessorFunction(FunctionResource):
-    @property
-    def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return ["code", "description", "name"], ["readme", "requirements"]
+    """Terraform resource for a processor function."""
 
     @property
     def _attributes(self) -> dict:
@@ -338,13 +481,13 @@ class ProcessorFunction(FunctionResource):
         return attributes
 
 
-class ProcessorNode(NodeResource):
+class ProcessorNode(ConfigResource, NodeResource):
+    """Terraform resource for a processor node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
-            "inlineProcessor",
             "loggingLevel",
             "requirements",
             "sequentialProcessing",
@@ -358,6 +501,8 @@ class ProcessorNode(NodeResource):
                 MESSAGE_TYPES[self["receiveMessageType"]["name"]]
             ),
         )
+        if self.get("inlineProcessor"):
+            attributes["inline_processor"] = self._file("inline_processor.py")
         if managed_processor := self.get("managedProcessor"):
             attributes["managed_processor"] = TerraformObjectReference(
                 FUNCTIONS[managed_processor["name"]]
@@ -371,11 +516,19 @@ class ProcessorNode(NodeResource):
         )
         return attributes
 
+    def encode(self) -> dict:
+        if inline_processor := self.get("inlineProcessor"):
+            with self._open_artifact("inline_processor.py") as f:
+                f.write(inline_processor)
+        return super().encode()
 
-class Tenant(Resource):
+
+class Tenant(ConfigResource, Resource):
+    """Terraform resource for a tenant."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
-        return [], ["config", "description"]
+        return [], ["description"]
 
     @property
     def _local_name(self) -> str:
@@ -387,6 +540,8 @@ class Tenant(Resource):
 
 
 class TenantUser(Resource):
+    """Terraform resource for a tenant user."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["email", "role"], ["status"]
@@ -397,18 +552,20 @@ class TenantUser(Resource):
 
 
 class TimerNode(NodeResource):
+    """Terraform resource for a timer node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name", "scheduleExpression"], ["description"]
 
 
-class WebhookNode(NodeResource):
+class WebhookNode(ConfigResource, NodeResource):
+    """Terraform resource for a webhook node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "description",
-            "inlineApiAuthenticator",
             "loggingLevel",
             "requirements",
         ]
@@ -421,22 +578,32 @@ class WebhookNode(NodeResource):
                 MESSAGE_TYPES[self["sendMessageType"]["name"]]
             ),
         )
+        if self.get("inlineApiAuthenticator"):
+            attributes["inline_api_authenticator"] = self._file(
+                "inline_api_authenticator.py"
+            )
         if managed_api_authenticator := self.get("managedApiAuthenticator"):
             attributes["managed_api_authenticator"] = TerraformObjectReference(
                 FUNCTIONS[managed_api_authenticator["name"]]
             )
         return attributes
 
+    def encode(self) -> dict:
+        if inline_api_authenticator := self.get("inlineApiAuthenticator"):
+            with self._open_artifact("inline_api_authenticator.py") as f:
+                f.write(inline_api_authenticator)
+        return super().encode()
 
-class WebSubHubNode(NodeResource):
+
+class WebSubHubNode(ConfigResource, NodeResource):
+    """Terraform resource for a WebSub hub node."""
+
     @property
     def _attribute_keys(self) -> tuple[list[str], list[str]]:
         return ["name"], [
-            "config",
             "defaultLeaseSeconds",
             "deliverRetries",
             "description",
-            "inlineApiAuthenticator",
             "maxLeaseSeconds",
             "loggingLevel",
             "requirements",
@@ -447,13 +614,24 @@ class WebSubHubNode(NodeResource):
     @property
     def _attributes(self) -> dict:
         attributes = super()._attributes
+        if self.get("inlineApiAuthenticator"):
+            attributes["inline_api_authenticator"] = self._file(
+                "inline_api_authenticator.py"
+            )
         if managed_api_authenticator := self.get("managedApiAuthenticator"):
             attributes["managed_api_authenticator"] = TerraformObjectReference(
                 FUNCTIONS[managed_api_authenticator["name"]]
             )
         return attributes
 
+    def encode(self) -> dict:
+        if inline_api_authenticator := self.get("inlineApiAuthenticator"):
+            with self._open_artifact("inline_api_authenticator.py") as f:
+                f.write(inline_api_authenticator)
+        return super().encode()
+
 
 def factory(data: dict) -> Resource:
+    """Create a resource from a dictionary."""
     cls = globals().get(data["__typename"])
     return cls(data) if cls else None

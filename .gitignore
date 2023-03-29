@@ -133,3 +133,4 @@ temp.env
 *.tfstate*
 *.tf.json
 .terraform/
+artifacts/
