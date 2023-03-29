@@ -16,6 +16,11 @@ class Resource(TerraformObject):
     """Base class for Terraform resources."""
 
     @property
+    def _artifacts_path(self) -> str:
+        """Return the path to the resource's artifacts."""
+        return f"artifacts/{self._object_type}/{self._local_name}"
+    
+    @property
     def _local_name(self) -> str:
         return self._convert_to_local_name(self.identity)
 
@@ -56,6 +61,20 @@ class NodeResource(Resource):
         super().__init__(dict, **kwargs)
         NODES[self["name"]] = self
 
+
+class ConfigResource(Resource):
+    """Base class for Terraform config resources."""
+
+    @property
+    def _attributes(self) -> dict:
+        attributes = super()._attributes
+        if self.get("config"):
+            attributes["config"] = f'${{file("${{path.module}}/{self._artifacts_path}/config.json")}}'
+        return attributes
+    
+    def encode(self) -> dict:
+
+        return super().encode()
 
 class ApiAuthenticatorFunction(FunctionResource):
     """Terraform resource for an API authenticator function."""
