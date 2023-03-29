@@ -78,6 +78,8 @@ def terrafy(
     All file creation is done in the current directory.
 
     Requires Terraform (>= 1.3.5) to be installed and available in the PATH."""
+    if os.name != "posix":
+        raise RuntimeError("echostream-terrafy only works on POSIX systems")
     appsync_endpoint = (
         appsync_endpoint
         or os.environ.get("ECHOSTREAM_APPSYNC_ENDPOINT")

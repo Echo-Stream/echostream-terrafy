@@ -1,4 +1,4 @@
-"""Terraform resources.""" ""
+"""Terraform resources."""
 from io import TextIOBase
 from os import makedirs, path
 
@@ -22,7 +22,7 @@ class Resource(TerraformObject):
     @property
     def __artifacts_path(self) -> str:
         """Return the path to the resource's artifacts."""
-        return f"artifacts/{self._object_type}/{self._local_name}"
+        return path.join("artifacts", self._object_type, self._local_name)
 
     def _file(self, file_name: str) -> str:
         """Return a Terraform file reference to an artifact file."""

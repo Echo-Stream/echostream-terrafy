@@ -47,9 +47,11 @@ You may execute `echostream-terrafy` using either environment variables, command
 
 All output from `echostream-terrafy` executions will be written to the current working directory, with existing files (including the `terraform.tfstate` file) being overwritten.
 
-> Note- it is recommended that you create a directory for the output of `echostream-terrafy` and execute it within that directory.
+> Note - it is recommended that you create a directory for the output of `echostream-terrafy` and execute it within that directory.
 
 > Warning - if you did not install `terraform` into your PATH, you must let `echostream-terrafy` know where to find it. This may be accomplished by specifying the `--terraform` command-line parameter with the full path to the `terraform` executable.
+
+> **Warning** - while the EchoStream Terraform Provider will run in a non-POSIX environment (e.g. - Windows), `echostream-terrafy` will NOT generate correct paths in a non-POSIX environment. Path construction is OS dependent. Because of this, `echostream-terrafy` will not run in a non-POSIX envrionment.
 
 ### Executing with environment variables
 ```shell
