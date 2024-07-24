@@ -420,9 +420,9 @@ def __process_main(gql_client: GqlClient, tenant: str) -> list[TerraformObject]:
     main_json = dict(
         terraform=dict(
             required_providers=dict(
-                echostream=dict(source="Echo-Stream/echostream", version=">=1.1.0")
+                echostream=dict(source="Echo-Stream/echostream", version=">=1.4.4")
             ),
-            required_version=">=1.3.5",
+            required_version=">=1.5.7",
         ),
     )
     with open("main.tf.json", "wt") as tf_json:
