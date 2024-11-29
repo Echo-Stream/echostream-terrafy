@@ -1,4 +1,4 @@
-argh==0.28.1
+argh==0.31.3
 black
 build
 deepmerge==1.1.0
