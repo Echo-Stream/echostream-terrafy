@@ -1,6 +1,6 @@
 # echostream-terrafy
 
-EchoStream provides a graphical way to design, build and update processing an integration
+EchoStream provides a graphical way to design, build and update processing and integration
 networks in real time. 
 
 However, there are teams that wish to manage all resources (EchoStream and others, such as 
@@ -19,18 +19,30 @@ a larger Terraform script.
 `echostream-terrafy` is a Python package that provides an executable. To install it:
 
 1. Install [Python](https://www.python.org/downloads/) >= 3.9 for your device.
-2. Install [Terraform](https://developer.hashicorp.com/terraform/downloads?ajs_aid=5c90e8ca-c3b8-428a-a881-e7ec9cedebc8&product_intent=terraform) >= 1.3.5 for your device.
-    > Warning - if you do not install Terraform to a location in your PATH, make note of the installation location!
-3. Create a Python virtual environment for the `echostream-terrafy` installation. This is an optional step, but it prevents Python package mismatch issues and is best practice.
-    ```shell
-    python -m venv echostream-terrafy
-    ```
-4. Activate the virtual environment and install `echostream-terrafy` into it.
-    ```shell
-    source echostream-terrafy/bin/activate
-    pip install echostream-terrafy
-    ```
-    > Note - to deactivate the virtual environment, simply type `deactivate` at the command prompt.
+2. Install your preferred HCL client.
+    1. Install [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.3.5 for your device.
+        > Warning - if you do not install Terraform to a location in your PATH, make note of the installation location!
+
+        -OR-
+
+    2. Install [OpenTofu](https://opentofu.org/docs/intro/install/) >= 1.6.2 for your device.
+        > Warning - if you do not install OponTofu to a location in your PATH, make note of the installation location!
+3. Install `echostream-terrafy`.
+    1. Using [pipx](https://pipx.pypa.io/stable/) - **RECOMMENDED**
+        ```shell
+        pipx install echostream-terrafy
+        ```
+    2. Using [pip](https://pip.pypa.io/en/stable/)
+        1. Create a Python virtual environment for the `echostream-terrafy` installation.
+            ```shell
+            python -m venv echostream-terrafy
+            ```
+        2. Activate the virtual environment and install `echostream-terrafy` into it.
+            ```shell
+            source echostream-terrafy/bin/activate
+            pip install echostream-terrafy
+            ```
+            > Note - to deactivate the virtual environment, simply type `deactivate` at the command prompt.
 
 ## Usage
 
@@ -55,7 +67,7 @@ All output from `echostream-terrafy` executions will be written to the current w
 
 ### Executing with environment variables
 ```shell
-source echostream-terrafy/bin/activate
+source echostream-terrafy/bin/activate # OPTIONAL - for use with venv
 export ECHOSTREAM_APPSYNC_ENDPOINT=<api_user_appsync_endpoint>
 export ECHOSTREAM_CLIENT_ID=<api_user_client_id>
 export ECHOSTREAM_PASSWORD=<api_user_password>
@@ -63,12 +75,12 @@ export ECHOSTREAM_TENANT=<my_tenant_name>
 export ECHOSTREAM_USER_POOL_ID=<api_user_user_pool_id>
 export ECHOSTREAM_USERNAME=<api_user_username>
 echostream-terrafy
-deactivate
+deactivate # OPTIONAL - for use with venv
 ```
 
 ### Executing using command-line variables
 ```shell
-source echostream-terrafy/bin/activate
+source echostream-terrafy/bin/activate # OPTIONAL - for use with venv
 echostream-terrafy \
     --appsync-endpoint <api_user_appsync_endpoint> \
     --client-id <api_user_client_id> \
@@ -76,7 +88,7 @@ echostream-terrafy \
     --tenant <my_tenant_name> \
     --user-pool-id <api_user_user_pool_id> \
     --username <api_user_username>
-deactivate
+deactivate # OPTIONAL - for use with venv
 ```
 
 ## Output
@@ -111,6 +123,3 @@ Simply make any changes that you wish to it and run `terraform plan` or `terrafo
 3. Add a `variables.tf` file and variablize any input (e.g. - configs) that you wish to be modifiable by module users.
 4. Add an `outputs.tf` file and output any information that needs to be accessed by module users.
 5. Register the module with a public/private Terraform registry or include it in a `modules` directory (either directly or as a `git` submodule) in another Terraform project.
-
-### Upload the output to Terraform Cloud or Terraform Enterprise
-Please see Terraform [Cloud](https://developer.hashicorp.com/terraform/cloud-docs/migrate)/[Enterprise](https://developer.hashicorp.com/terraform/enterprise/migrate) documentation for how to migrate a local terraform workspace to those products.
