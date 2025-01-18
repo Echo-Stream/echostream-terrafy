@@ -20,7 +20,7 @@ a larger Terraform script.
 
 1. Install [Python](https://www.python.org/downloads/) >= 3.9 for your device.
 2. Install your preferred HCL client.
-    1. Install [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.3.5 for your device.
+    1. Install [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5.7 for your device.
         > Warning - if you do not install Terraform to a location in your PATH, make note of the installation location!
 
         -OR-
@@ -61,7 +61,7 @@ All output from `echostream-terrafy` executions will be written to the current w
 
 > Note - it is recommended that you create a directory for the output of `echostream-terrafy` and execute it within that directory.
 
-> Warning - if you did not install `terraform` into your PATH, you must let `echostream-terrafy` know where to find it. This may be accomplished by specifying the `--terraform` command-line parameter with the full path to the `terraform` executable.
+> Warning - if you did not install `terraform` or `tofu` into your PATH, you must let `echostream-terrafy` know where to find it. This may be accomplished by specifying the `--cli` command-line parameter with the full path to the `terraform` or `tofu` executable.
 
 > **Warning** - while the EchoStream Terraform Provider will run in a non-POSIX environment (e.g. - Windows), `echostream-terrafy` will NOT generate correct paths in a non-POSIX environment. Path construction is OS dependent. Because of this, `echostream-terrafy` will not run in a non-POSIX envrionment.
 
