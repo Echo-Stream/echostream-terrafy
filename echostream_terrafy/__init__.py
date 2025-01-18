@@ -1,4 +1,5 @@
 """EchoStream Terraform module generator."""
+
 import os
 import re
 import subprocess
@@ -38,7 +39,11 @@ def main():
 @wrap_errors(processor=lambda err: colored(str(err), "red"))
 @arg(
     "--appsync-endpoint",
-    help=f"The ApiUser's AppSync Endpoint. Defaults to {DEFAULT_APPSYNC_ENDPOINT}. Environment variable - ECHOSTREAM_APPSYNC_ENDPOINT",
+    help=f"The ApiUser's AppSync Endpoint. Environment variable - ECHOSTREAM_APPSYNC_ENDPOINT",
+)
+@arg(
+    "--cli",
+    help="The path to the Terraform or OpenTofu cli.",
 )
 @arg(
     "--client-id",
@@ -53,10 +58,6 @@ def main():
     help="The EchoStream Tenant to terrafy. Environment variable - ECHOSTREAM_TENANT",
 )
 @arg(
-    "--terraform",
-    help="The path to the Terraform executable.",
-)
-@arg(
     "--user-pool-id",
     help="The ApiUser's AWS Cognito User Pool Id. Environment variable - ECHOSTREAM_USER_POOL_ID",
 )
@@ -65,11 +66,12 @@ def main():
     help="The ApiUser's username. Environment variable - ECHOSTREAM_USERNAME",
 )
 def terrafy(
-    appsync_endpoint: str = None,
+    *,
+    appsync_endpoint: str = DEFAULT_APPSYNC_ENDPOINT,
+    cli: str = "terraform",
     client_id: str = None,
     password: str = None,
     tenant: str = None,
-    terraform: str = "terraform",
     user_pool_id: str = None,
     username: str = None,
 ) -> None:
@@ -100,23 +102,39 @@ def terrafy(
     if not (username := username or os.environ.get("ECHOSTREAM_USERNAME")):
         raise CommandError("You must provide either --username or ECHOSTREAM_USERNAME")
 
-    version_check = subprocess.run([terraform, "--version"], capture_output=True)
+    version_check = subprocess.run([cli, "version"], capture_output=True)
     if version_check.returncode != 0:
         raise RuntimeError(version_check.stderr.decode())
-    if not (
-        (
-            m := re.match(
-                r"^Terraform v([0-9]\.[0-9]\.[0-9]).*$",
-                version_check.stdout.decode().split("\n")[0],
+    if "terraform" in cli:
+        if not (
+            (
+                m := re.match(
+                    r"^Terraform v([0-9]\.[0-9]\.[0-9]).*$",
+                    version_check.stdout.decode().split("\n")[0],
+                )
             )
-        )
-        and m.group(1) >= "1.3.5"
-    ):
-        raise RuntimeError(
-            f"{terraform} does not point to a Terraform executable"
-            if not m
-            else f"Terraform version must be >= 1.3.5, found {m.group(1)}"
-        )
+            and m.group(1) >= "1.3.5"
+        ):
+            raise RuntimeError(
+                f"{cli} does not point to a Terraform executable"
+                if not m
+                else f"Terraform version must be >= 1.3.5, found {m.group(1)}"
+            )
+    elif "tofu" in cli:
+        if not (
+            (
+                m := re.match(
+                    r"^OpenTofu v([0-9]\.[0-9]\.[0-9]).*$",
+                    version_check.stdout.decode().split("\n")[0],
+                )
+            )
+            and m.group(1) >= "1.6.2"
+        ):
+            raise RuntimeError(
+                f"{cli} does not point to a OpenTofu executable"
+                if not m
+                else f"OpenTofu version must be >= 1.6.2, found {m.group(1)}"
+            )
 
     cprint(f"Logging user {username} in to Tenant {tenant}", "cyan")
     gql_client = GqlClient(
@@ -154,7 +172,7 @@ def terrafy(
     stdout.write("\n")
 
     cprint("Initializing terraform", "cyan")
-    subprocess.run([terraform, "init"], capture_output=True, check=True)
+    subprocess.run([cli, "init"], capture_output=True, check=True)
     cprint("Terraform initialized!", "green")
 
     if os.path.exists("terraform.tfstate"):
@@ -183,7 +201,7 @@ def terrafy(
         if isinstance(obj, Resource):
             try:
                 subprocess.run(
-                    [terraform, "import", obj.address, obj.identity],
+                    [cli, "import", obj.address, obj.identity],
                     capture_output=True,
                     check=True,
                     env=env,
@@ -198,7 +216,7 @@ def terrafy(
     cprint("EchoStream resources imported!", "green")
     os.remove("terraform.tfstate.backup")
     cprint("Confirming that infrastructure matches configuration", "cyan")
-    plan_check = subprocess.run([terraform, "plan"], capture_output=True, check=True)
+    plan_check = subprocess.run([cli, "plan"], capture_output=True, check=True)
     if not re.search(r"No changes.", plan_check.stdout.decode(), flags=re.MULTILINE):
         cprint(
             f"WARNING: Tenant {tenant} infrastructure does not match the configuration. Plan output below:",
