@@ -1019,7 +1019,7 @@ def __process_tenant_and_tenant_users(
         """
     )
     with gql_client as session:
-        data = session.execute(query, variable_values=dict(tenant=tenant))["GetTenant"]
+        data: dict[str, Any] = session.execute(query, variable_values=dict(tenant=tenant))["GetTenant"]
     tenant_resource = resource_factory(data)
     with open("tenant.tf.json", "wt") as tf_json:
         json.dump(
@@ -1027,7 +1027,8 @@ def __process_tenant_and_tenant_users(
         )
     tenant_users: list[TerraformObject] = list()
     for data in list(data.get("users", [])):
-        tenant_users.append(resource_factory(data))
+        if (role := data.get("role")) and role != "owner":
+            tenant_users.append(resource_factory(data))
     tenant_users_json = dict()
     for tenant_user in tenant_users:
         tenant_users_json = always_merger.merge(tenant_users_json, tenant_user.encode())
